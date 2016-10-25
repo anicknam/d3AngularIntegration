@@ -54,8 +54,6 @@
           root = scope.data[0];
           root.x0 = height / 2;
           root.y0 = 0;
-            
-
           // ------
 
           // Toggle children on click.
@@ -73,7 +71,7 @@
           // define render function
           scope.render = function(source){
             // remove all previous items before render
-            svg.selectAll("*").remove();
+            // svg.selectAll("*").remove();
 
               // Compute the new tree layout.
               var nodes = tree.nodes(root).reverse(), 
