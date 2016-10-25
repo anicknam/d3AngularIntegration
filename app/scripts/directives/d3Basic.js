@@ -2,7 +2,7 @@
   'use strict';
 
   angular.module('myApp.directives')
-    .directive('d3Tree', ['d3', function(d3) {
+    .directive('d3Tree', function(d3) {
       return {
         restrict: 'EA',
         scope: {
@@ -39,74 +39,176 @@
           scope.$watch(function(){
               return angular.element(window)[0].innerWidth;
             }, function(){
-              return scope.render(scope.data);
+              return scope.render(scope.data[0]);
             }
           );
 
-          // watch for data changes and re-render
-          scope.$watch('data', function(newVals, oldVals) {
-            return scope.render(newVals);
-          }, true);
+          // // watch for data changes and re-render
+          // scope.$watch('data', function(newVals, oldVals) {
+          //   return scope.render(newVals[0]);
+          // }, true);
 
 
 
-          // 
+          // ------
           root = scope.data[0];
           root.x0 = height / 2;
           root.y0 = 0;
             
-          scope.render(root);
 
-          d3.select(self.frameElement).style("height", "500px");
+          // ------
+
+          // Toggle children on click.
+          var click = function (d) {
+            if (d.children) {
+            d._children = d.children;
+            d.children = null;
+            } else {
+            d.children = d._children;
+            d._children = null;
+            }
+            scope.render(d);
+          };
 
           // define render function
-          scope.render = function(data){
+          scope.render = function(source){
             // remove all previous items before render
             svg.selectAll("*").remove();
 
-            // setup variables
-            var width, height, max;
-            width = d3.select(iElement[0])[0][0].offsetWidth - 20;
-              // 20 is for margins and can be changed
-            height = scope.data.length * 35;
-              // 35 = 30(bar height) + 5(margin between bars)
-            max = 98;
-              // this can also be found dynamically when the data is not static
-              // max = Math.max.apply(Math, _.map(data, ((val)-> val.count)))
+              // Compute the new tree layout.
+              var nodes = tree.nodes(root).reverse(), 
+                links = tree.links(nodes);
 
-            // set the height based on the calculations above
-            svg.attr('height', height);
+              // Normalize for fixed-depth.
+              nodes.forEach(function(d) { d.y = d.depth * 180; });
 
-            //create the rectangles for the bar chart
-            svg.selectAll("rect")
-              .data(data)
-              .enter()
-                .append("rect")
-                .on("click", function(d){return scope.onClick({item: d});})
-                .attr("height", 30) // height of each bar
-                .attr("width", 0) // initial width of 0 for transition
-                .attr("x", 10) // half of the 20 side margin specified above
-                .attr("y", function(d, i){
-                  return i * 35;
-                }) // height + margin between bars
-                .transition()
-                  .duration(1000) // time of duration
-                  .attr("width", function(d){
-                    return d.score/(max/width);
-                  }); // width based on scale
+              // Update the nodes…
+              var node = svg.selectAll("g.node")
+                .data(nodes, function(d) { return d.id || (d.id = ++i); });
 
-            svg.selectAll("text")
-              .data(data)
-              .enter()
-                .append("text")
-                .attr("fill", "#fff")
-                .attr("y", function(d, i){return i * 35 + 22;})
-                .attr("x", 15)
-                .text(function(d){return d[scope.label];});
+              // Enter any new nodes at the parent's previous position.
+              var nodeEnter = node.enter().append("g")
+                .attr("class", "node")
+                .attr("transform", function(d) { return "translate(" + source.y0 + "," + source.x0 + ")"; })
+                .on("click", click);
 
-          };
-        }
-      };
-    }]);
+              nodeEnter.append("circle")
+                .attr("r", 1e-6)
+                .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+
+              nodeEnter.append("text")
+                .attr("x", function(d) { return d.children || d._children ? -13 : 13; })
+                .attr("dy", ".35em")
+                .attr("text-anchor", function(d) { return d.children || d._children ? "end" : "start"; })
+                .text(function(d) { return d.name; })
+                .style("fill-opacity", 1e-6);
+
+              // Transition nodes to their new position.
+              var nodeUpdate = node.transition()
+                .duration(duration)
+                .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
+
+              nodeUpdate.select("circle")
+                .attr("r", 10)
+                .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+
+              nodeUpdate.select("text")
+                .style("fill-opacity", 1);
+
+              // Transition exiting nodes to the parent's new position.
+              var nodeExit = node.exit().transition()
+                .duration(duration)
+                .attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
+                .remove();
+
+              nodeExit.select("circle")
+                .attr("r", 1e-6);
+
+              nodeExit.select("text")
+                .style("fill-opacity", 1e-6);
+
+              // Update the links…
+              var link = svg.selectAll("path.link")
+                .data(links, function(d) { return d.target.id; });
+
+              // Enter any new links at the parent's previous position.
+              link.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("d", function(d) {
+                var o = {x: source.x0, y: source.y0};
+                return diagonal({source: o, target: o});
+                });
+
+              // Transition links to their new position.
+              link.transition()
+                .duration(duration)
+                .attr("d", diagonal);
+
+              // Transition exiting nodes to the parent's new position.
+              link.exit().transition()
+                .duration(duration)
+                .attr("d", function(d) {
+                var o = {x: source.x, y: source.y};
+                return diagonal({source: o, target: o});
+                })
+                .remove();
+
+              // Stash the old positions for transition.
+              nodes.forEach(function(d) {
+              d.x0 = d.x;
+              d.y0 = d.y;
+              });
+            }
+
+            scope.render(root);
+
+            d3.select(self.frameElement).style("height", "500px");
+
+            // ----------------------------------------------------
+
+          //   // setup variables
+          //   var width, height, max;
+          //   width = d3.select(iElement[0])[0][0].offsetWidth - 20;
+          //     // 20 is for margins and can be changed
+          //   height = scope.data.length * 35;
+          //     // 35 = 30(bar height) + 5(margin between bars)
+          //   max = 98;
+          //     // this can also be found dynamically when the data is not static
+          //     // max = Math.max.apply(Math, _.map(data, ((val)-> val.count)))
+
+          //   // set the height based on the calculations above
+          //   svg.attr('height', height);
+
+          //   //create the rectangles for the bar chart
+          //   svg.selectAll("rect")
+          //     .data(data)
+          //     .enter()
+          //       .append("rect")
+          //       .on("click", function(d){return scope.onClick({item: d});})
+          //       .attr("height", 30) // height of each bar
+          //       .attr("width", 0) // initial width of 0 for transition
+          //       .attr("x", 10) // half of the 20 side margin specified above
+          //       .attr("y", function(d, i){
+          //         return i * 35;
+          //       }) // height + margin between bars
+          //       .transition()
+          //         .duration(1000) // time of duration
+          //         .attr("width", function(d){
+          //           return d.score/(max/width);
+          //         }); // width based on scale
+
+          //   svg.selectAll("text")
+          //     .data(data)
+          //     .enter()
+          //       .append("text")
+          //       .attr("fill", "#fff")
+          //       .attr("y", function(d, i){return i * 35 + 22;})
+          //       .attr("x", 15)
+          //       .text(function(d){return d[scope.label];});
+
+          // };
+        } // end of link
+      }; // end of return
+    });
 
 }());
