@@ -2,7 +2,7 @@
   'use strict';
 
   angular.module('myApp.controllers')
-    .controller('DemoCtrl', ['$scope', function($scope){
+    .controller('DemoCtrl', function($scope){
       $scope.title = "DemoCtrl";
       $scope.d3Data = [
         {name: "Greg", score:98},
@@ -12,6 +12,6 @@
       $scope.d3OnClick = function(item){
         alert(item.name);
       };
-    }]);
+    });
 
 }());

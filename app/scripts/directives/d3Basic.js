@@ -2,7 +2,7 @@
   'use strict';
 
   angular.module('myApp.directives')
-    .directive('d3Bars', ['d3', function(d3) {
+    .directive('d3Tree', ['d3', function(d3) {
       return {
         restrict: 'EA',
         scope: {
@@ -54,7 +54,7 @@
               .data(data)
               .enter()
                 .append("rect")
-                .on("click", function(d, i){return scope.onClick({item: d});})
+                .on("click", function(d){return scope.onClick({item: d});})
                 .attr("height", 30) // height of each bar
                 .attr("width", 0) // initial width of 0 for transition
                 .attr("x", 10) // half of the 20 side margin specified above
