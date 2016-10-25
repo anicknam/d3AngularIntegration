@@ -11,9 +11,26 @@
           onClick: "&"
         },
         link: function(scope, iElement, iAttrs) {
+          var margin = {top: 20, right: 120, bottom: 20, left: 120},
+            width = 960 - margin.right - margin.left,
+            height = 500 - margin.top - margin.bottom;
+            
+          var i = 0,
+            duration = 750,
+            root;
+
+          var tree = d3.layout.tree()
+            .size([height, width]);
+
+          var diagonal = d3.svg.diagonal()
+            .projection(function(d) { return [d.y, d.x]; });
+
           var svg = d3.select(iElement[0])
               .append("svg")
-              .attr("width", "100%");
+              .attr("width", width + margin.right + margin.left)
+              .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
           // on window resize, re-render d3 canvas
           window.onresize = function() {
@@ -30,6 +47,17 @@
           scope.$watch('data', function(newVals, oldVals) {
             return scope.render(newVals);
           }, true);
+
+
+
+          // 
+          root = scope.data[0];
+          root.x0 = height / 2;
+          root.y0 = 0;
+            
+          scope.render(root);
+
+          d3.select(self.frameElement).style("height", "500px");
 
           // define render function
           scope.render = function(data){
